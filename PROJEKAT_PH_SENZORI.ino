@@ -49,6 +49,13 @@ double sumaGresaka = 0.0;
 double proslaGreska = 0.0;
 unsigned long prosloVreme = 0;
 
+// IZ MAIN-FUNKCIJE PROMENLJIVE
+float izmereniPhNapon, izmerenaPhVrednost;
+float Vph1, Vph2, ph1, ph2; // naponi sa ph senzora 
+float pocetnaV1, pocetnaV2; // pocetni naponi v1, v2
+float m,b;
+
+
 void setup() {
 
   Serial.begin(9600);
@@ -117,13 +124,13 @@ void pertilijerPID()
 float VphMerenje(){ // merenje napona sa ph senzora
   int br = 0;
   float result = 0;
-  while(br<300){
+  while(br<3){          // TREBA DA MERI 300 SEKUNDI, STAVILI SMO 3 SEKUNDE ZA TEST
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Merenje");
   lcd.setCursor(0,1);
   lcd.print("u toku");
-  pertilijerWHILE(); // PROVERAVANJE DA LI JE DOSLO DO 25, AKO NIJE ZAGREJE GA
+  pertilijerPID(); // PROVERAVANJE DA LI JE DOSLO DO 25, AKO NIJE ZAGREJE GA
   result = analogRead(PH_INPUT)*5.0/1023;
   delay(1000);
   br++;
@@ -134,13 +141,13 @@ float VphMerenje(){ // merenje napona sa ph senzora
 float VphKalibracija(){ // merenje napona sa ph senzora
   int br = 0;
   float result = 0;
-  while(br<300){
+  while(br<3){          // TREBA DA MERI 300 SEKUNDI, STAVILI SMO 3 SEKUNDE ZA TEST
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Kalibracija");
   lcd.setCursor(0,1);
   lcd.print("u toku");
-  pertilijerWHILE();
+  pertilijerPID();
    // PROVERAVANJE DA LI JE DOSLO DO 25, AKO NIJE ZAGREJE GA
   result = analogRead(PH_INPUT)*5.0/1023;
   delay(1000);
@@ -155,6 +162,12 @@ float pocetnaNapon(){ // merenje pocetnog napona sa ph senzora
 
   while(br<10){
   result =  analogRead(PH_INPUT)*5.0/1023;
+  lcd.clear();   // ISPIS ZA DEBUGOVANJE ----------------------------------------------------
+              lcd.setCursor(0, 0);
+              lcd.print("MERENJE POCETNOG");
+              lcd.setCursor(0, 1);
+              lcd.print("NAPONA");
+              delay(1000); // -----------------------------------------------------------------------
   delay(1000);
   br++;
   
@@ -234,7 +247,7 @@ void ispisTeksta(String tekst, int interval, int zadatoVreme)
     if(millis() - prethodnoVreme > interval)
     {
       prethodnoVreme = millis();
-
+      lcd.clear(); //  OVO SMO DODALI -----------------------------------------------
       lcd.setCursor(0,0);
       lcd.print(tekst.substring(pozicija, pozicija + 16));
 
@@ -293,6 +306,7 @@ float unosCelobrojneVrednosti()
         lcd.print("                ");
         lcd.setCursor(0,1);
         lcd.print(unos);
+        delay(150);
   }
 
   lcd.clear();
@@ -347,8 +361,18 @@ void pertilijerWHILE() {
     lcd.print("u toku!");
 
     // Cekamo dok temperatura ne udje u opseg 24.5 - 25.5
+    float t;
     while(true) {
-        float t = tempNtc();  // citamo jednom, koristimo vise puta
+
+       lcd.clear();   // ISPIS ZA DEBUGOVANJE ----------------------------------------------------
+              lcd.setCursor(0, 0);
+              lcd.print("WHILE PTELJA");
+              lcd.setCursor(0, 1);
+              lcd.print(tempNtc()); // -----------------------------------------------------------------------
+
+
+
+        t = tempNtc();  // citamo jednom, koristimo vise puta
 
         if(t >= 24.5 && t <= 25.5) {
             lcd.clear();
@@ -359,61 +383,28 @@ void pertilijerWHILE() {
             delay(1500);
             lcd.clear();
             digitalWrite(RELAY_PERTILIJER, LOW);
-            break;
+            return;
         }
 
         // Direktno upravljamo relejem bez PID-a
         // (dok cekamo da dostignemo 25, nema smisla koristiti PID)
         if(t < 24.5) {
             digitalWrite(RELAY_PERTILIJER, HIGH);
+             lcd.clear();   // ISPIS ZA DEBUGOVANJE ----------------------------------------------------
+              lcd.setCursor(0, 0);
+              lcd.print("Relaj upaljen");
+              lcd.setCursor(0, 1);
+              lcd.print(""); // -----------------------------------------------------------------------
+
         } else {
-            digitalWrite(RELAY_PERTILIJER, LOW);
+            digitalWrite(RELAY_PERTILIJER, HIGH);
         }
 
         delay(500);  // Malo pauze da ne bombardujemo senzor
     }
 }
 
-
-void loop() {
-//INICIJALNA KALIBRACIJA
-    lcd.clear();
-    lcd.setCursor(0,0);
-    lcd.print("Inicijalna");
-    lcd.setCursor(0,1);
-    lcd.print("Kalibracija");
-    delay(1500);
-    lcd.clear();
-    lcd.setCursor(0,0);
-    lcd.print("Uneti prvu ph:");
-    delay(1500);
-    float ph1 = unosCelobrojneVrednosti();
-    lcd.clear();
-    lcd.setCursor(0,0);
-    lcd.print("Uneti drugu ph:");
-    delay(1500);
-    float ph2 = unosCelobrojneVrednosti();
-
-    float Vph1, Vph2; // naponi sa ph senzora 
-    float pocetnaV1, pocetnaV2;
-    float izmereniPhNapon, izmerenaPhVrednost;
-    pertilijerWHILE();
-    
-  zvucniSignal();
-  pertilijerWHILE();
-  pocetnaV1 = pocetnaNapon();
-  Vph1 = VphKalibracija(); // MERENJE NAPONA  TECNOSTI JEDAN
-  zvucniSignal();
-  ispisTeksta("Premesti ph senzor", 300, 10000);
-  pertilijerWHILE();
-  pocetnaV2 = pocetnaNapon();
-  Vph2 = VphKalibracija(); // MERENJE NAPONA  TECNOSTI DVA
-  zvucniSignal();
-  float m,b;
-  m = racunanjeM(ph1,ph2,Vph1,Vph2); //nagib krive
-  b = racunanjeB(ph1,Vph1,m); // pomeraj, gde sece grafik X osu
-  ispisTeksta("Kalibracija zavrsena!", 300, 2000);
-
+void odabirModa(){
   char key;
 
   while(true)
@@ -441,6 +432,7 @@ void loop() {
   Vph1 = VphKalibracija(); // MERENJE NAPONA  TECNOSTI JEDAN
   zvucniSignal();
   ispisTeksta("Premesti ph senzor", 300, 10000);
+  delay(1500);
   pertilijerWHILE();
   pocetnaV2 = pocetnaNapon();
   Vph2 = VphKalibracija(); // MERENJE NAPONA  TECNOSTI DVA
@@ -465,4 +457,107 @@ void loop() {
       delay(2000);
     }
   }
+}
+
+
+void loop() {
+  odabirModa();
+//INICIJALNA KALIBRACIJA
+/*    lcd.clear();  -- OVO SE SVE NALAZI U FUNKCIJI odabirMod() - OVO JE ZA MOD 1. NEKE PROMENLJIVE SMO VEC OBRISALI ODAVDE
+    lcd.setCursor(0,0);
+    lcd.print("Inicijalna");
+    delay(1000);
+    lcd.setCursor(0,1);
+    lcd.print("Kalibracija");
+    delay(1500);
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Uneti prvu ph:");
+    delay(1500);
+    float ph1 = unosCelobrojneVrednosti();
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Uneti drugu ph:");
+    delay(1500);
+    float ph2 = unosCelobrojneVrednosti();
+
+    
+    pertilijerWHILE();
+
+  lcd.clear();   // ISPIS ZA DEBUGOVANJE ----------------------------------------------------
+              lcd.setCursor(0, 0);
+              lcd.print("IZASLI SMO WHILE");
+              lcd.setCursor(0, 1);
+              lcd.print("");
+              delay(1000); // -----------------------------------------------------------------------
+    
+  zvucniSignal();
+  //pertilijerWHILE();                            OVO NISMO PROVALILI ZA STA JE
+  pocetnaV1 = pocetnaNapon();
+  Vph1 = VphKalibracija(); // MERENJE NAPONA  TECNOSTI JEDAN
+  //zvucniSignal();
+
+  ispisTeksta("Premesti ph senzor", 300, 10000);
+  pertilijerWHILE();
+  pocetnaV2 = pocetnaNapon();
+  Vph2 = VphKalibracija(); // MERENJE NAPONA  TECNOSTI DVA
+  zvucniSignal();
+  float m,b;
+  m = racunanjeM(ph1,ph2,Vph1,Vph2); //nagib krive
+  b = racunanjeB(ph1,Vph1,m); // pomeraj, gde sece grafik X osu
+  ispisTeksta("Kalibracija zavrsena!", 300, 2000);*/
+
+/*   --- NAPRAVILI FUNKCIJU ZA MOD odabirModa()
+  char key;
+
+  while(true)
+  {
+    key = modovi();
+
+    if(key == '1')  // KALIBRACIJA
+    {
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Uneti prvu ph:");
+    delay(1500);
+    ph1 = unosCelobrojneVrednosti();
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Uneti drugu ph:");
+    delay(1500);
+    ph2 = unosCelobrojneVrednosti();
+
+  pertilijerWHILE();
+    
+  zvucniSignal();
+  pertilijerWHILE();
+  pocetnaV1 = pocetnaNapon();
+  Vph1 = VphKalibracija(); // MERENJE NAPONA  TECNOSTI JEDAN
+  zvucniSignal();
+  ispisTeksta("Premesti ph senzor", 300, 10000);
+  delay(1500);
+  pertilijerWHILE();
+  pocetnaV2 = pocetnaNapon();
+  Vph2 = VphKalibracija(); // MERENJE NAPONA  TECNOSTI DVA
+  zvucniSignal();
+  m = racunanjeM(ph1,ph2,Vph1,Vph2); //nagib krive
+  b = racunanjeB(ph1,Vph1,m); // pomeraj, gde sece grafik X osu
+  ispisTeksta("Kalibracija zavrsena!", 300, 2000);
+    }
+
+    if(key == '2')   // MERENJE PH VREDNOSTI
+    {
+      pertilijerWHILE();
+      zvucniSignal();
+      izmereniPhNapon = VphMerenje();
+      izmerenaPhVrednost = merenjePh(m, izmereniPhNapon, b);
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("Izmerena");
+      lcd.setCursor(0,1);
+      lcd.print("pH je: ");
+      lcd.print(izmerenaPhVrednost, 2);
+      delay(2000);
+    }
+  }*/
 }
