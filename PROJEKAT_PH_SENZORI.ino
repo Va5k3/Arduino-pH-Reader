@@ -2,7 +2,17 @@
 #include <Keypad.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
+
+#include <OneWire.h> //za temperaturu biblioteke
+#include <DallasTemperature.h>
+
 //LIBRARY_END------------------------------
+
+#define ONE_WIRE_BUS A0 // digitalni pin za senzor za temperaturu
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+
+
 
 const byte rows[4] = {7, 8, 9, 10}; //konekcija sa pinovina 
 const byte cols[3] = {11, 12, 13}; //konekcija sa pinovina 
@@ -19,14 +29,21 @@ Keypad mykeypad = Keypad(makeKeymap(keys), rows, cols, 4, 3); //Pravljenje insta
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-const int DS_TEMP = 3;
-const int NTC_TEMP = A0;
+const int VODENA_PUMPA1 = 6;   // NOVO
+const int VODENA_PUMPA1_2 = 5;
+
+const int VODENA_PUMPA2 = 3;
+const int VODENA_PUMPA2_2 = 1;
+
+const int ENABLE_PUMPA = 2;
+
+//const int DS_TEMP = 3; DIGITALNI SENZOR ZA TEMPERATURU, KOJI NE KORISTIMO 
 int R1 = 10000;
 int B=3950;
 float T0 = 25+273.16;
 
 const int RELAY_PERTILIJER = 4;
-const int BUZZER = 5;
+//const int BUZZER = 5;
 const int PH_INPUT = A1;
 
 //PID konstante
@@ -58,22 +75,80 @@ float m,b;
 
 void setup() {
 
-  Serial.begin(9600);
+ // Serial.begin(9600);
 
   lcd.init(); // inicijalizacija lcd
   lcd.backlight(); // ukljucivanje pozadinskog osvetljenja LCD-a
   
   
-  pinMode(DS_TEMP,INPUT);
-  pinMode(NTC_TEMP,INPUT);
+//  pinMode(DS_TEMP,INPUT);
+//  pinMode(NTC_TEMP,INPUT);
   pinMode(RELAY_PERTILIJER,OUTPUT);
-  pinMode(BUZZER,OUTPUT);
+  //pinMode(BUZZER,OUTPUT);
   pinMode(PH_INPUT,INPUT);
 
+  pinMode(ENABLE_PUMPA, OUTPUT);
+  pinMode(VODENA_PUMPA1, OUTPUT);
+  pinMode(VODENA_PUMPA1_2, OUTPUT);
+  pinMode(VODENA_PUMPA2, OUTPUT);
+  pinMode(VODENA_PUMPA2_2, OUTPUT);
+  
+  digitalWrite(ENABLE_PUMPA, HIGH);
   digitalWrite(RELAY_PERTILIJER, LOW);
   prosloVreme = millis();
 
+  sensors.begin(); // senzor za temperaturu
+
 }
+
+void vodenaPumpa(char pumpa){
+
+  if(pumpa=='3'){
+    lcd.clear();   // ISPIS ZA DEBUGOVANJE ----------------------------------------------------
+              lcd.setCursor(0, 0);
+              lcd.print("PUMPA 1");
+              lcd.setCursor(0, 1);
+              lcd.print("PUMPA BAZU");
+              
+    digitalWrite(VODENA_PUMPA1,HIGH);
+    digitalWrite(VODENA_PUMPA1_2,LOW);
+    delay(1500);// puni se voda pola sekunde
+    digitalWrite(VODENA_PUMPA1,LOW);
+    digitalWrite(VODENA_PUMPA1_2,LOW);
+    lcd.clear();   // ISPIS ZA DEBUGOVANJE ----------------------------------------------------
+              lcd.setCursor(0, 0);
+              lcd.print("PUMPA 1");
+              lcd.setCursor(0, 1);
+              lcd.print("ZAVRSILA");
+    delay(500);
+              lcd.clear();
+}else if(pumpa=='4'){
+    //
+    
+    lcd.clear();   // ISPIS ZA DEBUGOVANJE ----------------------------------------------------
+              lcd.setCursor(0, 0);
+              lcd.print("PUMPA 2");
+              lcd.setCursor(0, 1);
+              lcd.print("PUMPA KISELOST");
+              
+    digitalWrite(VODENA_PUMPA2,LOW);
+    digitalWrite(VODENA_PUMPA2_2,HIGH);
+    delay(1500);
+    digitalWrite(VODENA_PUMPA2,LOW);
+    digitalWrite(VODENA_PUMPA2_2,LOW);
+    lcd.clear();   // ISPIS ZA DEBUGOVANJE ----------------------------------------------------
+              lcd.setCursor(0, 0);
+              lcd.print("PUMPA 2");
+              lcd.setCursor(0, 1);
+              lcd.print("ZAVRSILA");
+    delay(500);
+    lcd.clear();
+}
+
+
+}
+
+
 double racunajPID(double izmereno, double zeleno, double dt)
 {
   double greska = zeleno - izmereno;
@@ -124,12 +199,13 @@ void pertilijerPID()
 float VphMerenje(){ // merenje napona sa ph senzora
   int br = 0;
   float result = 0;
-  while(br<3){          // TREBA DA MERI 300 SEKUNDI, STAVILI SMO 3 SEKUNDE ZA TEST
+  while(br<120){          // TREBA DA MERI 300 SEKUNDI, STAVILI SMO 3 SEKUNDE ZA TEST
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Merenje");
   lcd.setCursor(0,1);
-  lcd.print("u toku");
+  lcd.print("u toku : ");
+  lcd.print(result);
   pertilijerPID(); // PROVERAVANJE DA LI JE DOSLO DO 25, AKO NIJE ZAGREJE GA
   result = analogRead(PH_INPUT)*5.0/1023;
   delay(1000);
@@ -141,12 +217,13 @@ float VphMerenje(){ // merenje napona sa ph senzora
 float VphKalibracija(){ // merenje napona sa ph senzora
   int br = 0;
   float result = 0;
-  while(br<3){          // TREBA DA MERI 300 SEKUNDI, STAVILI SMO 3 SEKUNDE ZA TEST
+  while(br<120){          // TREBA DA MERI 300 SEKUNDI, STAVILI SMO 3 SEKUNDE ZA TEST
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Kalibracija");
   lcd.setCursor(0,1);
-  lcd.print("u toku");
+  lcd.print("u toku : ");
+  lcd.print(result);
   pertilijerPID();
    // PROVERAVANJE DA LI JE DOSLO DO 25, AKO NIJE ZAGREJE GA
   result = analogRead(PH_INPUT)*5.0/1023;
@@ -186,23 +263,26 @@ float merenjePh(float M, float Vph, float B){ //GLAVNA FUNKCIJA - merenje PH
   return M * Vph + B;
 }
 
-void zvucniSignal(){
+/*void zvucniSignal(){
   for(int i=0;i<3;++i){
     digitalWrite(BUZZER,HIGH);
     delay(1000);
     digitalWrite(BUZZER,LOW);
   }
 }
-
+*/
 float tempNtc(){
   
-  int VanalRaw = analogRead(NTC_TEMP);
-  float Vanal = VanalRaw*(5.0/1023);
-  float Rntc = Vanal*R1/(5-Vanal);
-  float A = log(Rntc/R1);
-  float T = 1/(A/B+1/T0);
-  float Tc = T-273.16;
-  return Tc; 
+  sensors.requestTemperatures();
+  float tempC = sensors.getTempCByIndex(0);
+  /*if(tempC==DEVICE_DISCONNECTED_C){
+    Serial.println("GRESKA SENZORA");
+    return -1;
+  }*/
+  return tempC;
+
+
+
 }
 
 char modovi()
@@ -210,12 +290,12 @@ char modovi()
   int pozicija = 0;
   unsigned long prethodnoVreme = millis();
   int interval = 300;
-  String tekst = "Izaberi: 1-Kalibracija  2-Merenje   ";
+  String tekst = "Izaberi: 1-Kalibracija  2-Merenje 3-BAZA 4-KISELOST  ";
 
   while(true)
   {
     char key = mykeypad.getKey(); //provera keypad-a
-    if(key == '1' || key == '2')
+    if(key == '1' || key == '2' || key == '3' || key == '4')
     {
       lcd.clear();
       return key;
@@ -374,7 +454,7 @@ void pertilijerWHILE() {
 
         t = tempNtc();  // citamo jednom, koristimo vise puta
 
-        if(t >= 24.5 && t <= 25.5) {
+        if(t >= 24.5) {
             lcd.clear();
             lcd.setCursor(0, 0);
             lcd.print("Zagrevanje");
@@ -394,11 +474,14 @@ void pertilijerWHILE() {
               lcd.setCursor(0, 0);
               lcd.print("Relaj upaljen");
               lcd.setCursor(0, 1);
-              lcd.print(""); // -----------------------------------------------------------------------
+              lcd.print(tempNtc());  // -----------------------------------------------------------------------
 
         } else {
-            digitalWrite(RELAY_PERTILIJER, HIGH);
+            digitalWrite(RELAY_PERTILIJER, LOW);
+            
+
         }
+            
 
         delay(500);  // Malo pauze da ne bombardujemo senzor
     }
@@ -426,17 +509,17 @@ void odabirModa(){
 
   pertilijerWHILE();
     
-  zvucniSignal();
-  pertilijerWHILE();
+  //zvucniSignal();
+  //pertilijerWHILE();
   pocetnaV1 = pocetnaNapon();
   Vph1 = VphKalibracija(); // MERENJE NAPONA  TECNOSTI JEDAN
-  zvucniSignal();
+  //zvucniSignal();
   ispisTeksta("Premesti ph senzor", 300, 10000);
   delay(1500);
   pertilijerWHILE();
   pocetnaV2 = pocetnaNapon();
   Vph2 = VphKalibracija(); // MERENJE NAPONA  TECNOSTI DVA
-  zvucniSignal();
+  //zvucniSignal();
   m = racunanjeM(ph1,ph2,Vph1,Vph2); //nagib krive
   b = racunanjeB(ph1,Vph1,m); // pomeraj, gde sece grafik X osu
   ispisTeksta("Kalibracija zavrsena!", 300, 2000);
@@ -445,7 +528,7 @@ void odabirModa(){
     if(key == '2')   // MERENJE PH VREDNOSTI
     {
       pertilijerWHILE();
-      zvucniSignal();
+     // zvucniSignal();
       izmereniPhNapon = VphMerenje();
       izmerenaPhVrednost = merenjePh(m, izmereniPhNapon, b);
       lcd.clear();
@@ -456,12 +539,43 @@ void odabirModa(){
       lcd.print(izmerenaPhVrednost, 2);
       delay(2000);
     }
+    if(key == '3' || key =='4'){
+      vodenaPumpa(key);
+    }
+    
   }
 }
 
 
 void loop() {
-  odabirModa();
+ /*while(1){
+  float temp = tempNtc();
+  lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("Izmerena temp: ");
+      lcd.setCursor(0,1);
+      lcd.print(temp);
+      delay(500);
+}
+*/
+    odabirModa(); 
+ // digitalWrite(RELAY_PERTILIJER,1);
+  // VREDNOSTI ZA KALIBRAICJU
+  // PH ZA BAZU      :   8.3, NA TEMPERATURI 25 STEPENI
+  // PH ZA KISELOST  :   2.7  NA TEMPERATURI 25 STEPENI
+
+
+
+
+
+
+
+
+
+
+
+
+
 //INICIJALNA KALIBRACIJA
 /*    lcd.clear();  -- OVO SE SVE NALAZI U FUNKCIJI odabirMod() - OVO JE ZA MOD 1. NEKE PROMENLJIVE SMO VEC OBRISALI ODAVDE
     lcd.setCursor(0,0);
