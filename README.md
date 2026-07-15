@@ -2,8 +2,24 @@
 
 An Arduino system for measuring and calibrating the pH of a liquid, with automatic heating of the sample to a reference temperature (PID control) and two pumps for dosing calibration solutions (base / acid). Controlled via a 4x3 matrix keypad, with status shown on a 16x2 I2C LCD.
 
+<img width="2048" height="1536" alt="WhatsApp Image 2026-07-15 at 16 40 19" src="https://github.com/user-attachments/assets/342fd49e-e3f0-443a-b1ca-7dee0e362a3a" />
+
+## Gallery
+
+### Complete System
+
+<img width="1536" height="2048" alt="WhatsApp Image 2026-07-15 at 16 40 24 (1)" src="https://github.com/user-attachments/assets/89e6d355-6b9b-4f52-a732-2e11c5984a38" />
+
+
+### Electronics and Wiring
+
+<img width="1536" height="2048" alt="WhatsApp Image 2026-07-15 at 16 40 25" src="https://github.com/user-attachments/assets/020811f9-4bda-49af-8378-9f7cc87dd96f" />
+
+
 ## Table of Contents
 
+- [Project Overview](#project-overview)
+- [Gallery](#gallery)
 - [How It Works](#how-it-works)
 - [Hardware](#hardware)
 - [Pinout](#pinout)
