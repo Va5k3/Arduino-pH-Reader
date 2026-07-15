@@ -1,6 +1,6 @@
 # Automated pH System 
 
-An Arduino system for measuring and calibrating the pH of a liquid, with automatic heating of the sample to a reference temperature (PID control) and two pumps for dosing calibration solutions (base / acid). Controlled via a 4x3 matrix keypad, with status shown on a 16x2 I2C LCD.
+An Arduino system for measuring and calibrating the pH of a liquid, with automatic heating of the sample to a reference temperature and two pumps for dosing calibration solutions (base / acid). Controlled via a 4x3 matrix keypad, with status shown on a 16x2 I2C LCD.
 
 <img width="2048" height="1536" alt="WhatsApp Image 2026-07-15 at 16 40 19" src="https://github.com/user-attachments/assets/342fd49e-e3f0-443a-b1ca-7dee0e362a3a" />
 
